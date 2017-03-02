@@ -71,7 +71,7 @@
         android:ems="10"
         android:layout_alignBottom="@+id/state1"
         android:layout_toEndOf="@+id/state1"
-        android:id="@+id/zip"
+        android:id="@+id/zip1"
         tools:inputType="number"
         android:background="@android:drawable/zoom_plate" />
 
