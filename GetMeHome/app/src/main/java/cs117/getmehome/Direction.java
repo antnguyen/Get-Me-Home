@@ -43,6 +43,13 @@ public class Direction extends AppCompatActivity {
         dostuff(location);
     }
 
+    @Override
+    public void onDestroy()
+    {
+        super.onDestroy();
+        locationService.stopUsingGPS();
+    }
+
     public void dostuff(Location location) {
     /* navigate
         get next turn
