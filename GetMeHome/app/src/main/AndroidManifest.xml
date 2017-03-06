@@ -27,14 +27,10 @@
         </activity>
         <activity android:name=".Direction" />
 
-        <receiver
-            android:name=".SmsReceiver"
+        <service
+            android:name=".LocationService"
             android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
-            </intent-filter>
-        </receiver>
+            android:exported="true"></service>
     </application>
 
 </manifest>

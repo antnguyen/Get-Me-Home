@@ -44,6 +44,7 @@ import java.util.*;
 public class MainActivity extends AppCompatActivity {
     public static final String PHONENO = "5556";
     private static final int MY_PERMISSIONS_SEND_SMS = 123;
+    private static final int MY_PERMISSIONS_RECEIVE_SMS = 321;
     private static final int MY_PERMISSIONS_GPS = 456;
     Button send;
     EditText street;
@@ -52,11 +53,12 @@ public class MainActivity extends AppCompatActivity {
     EditText zip;
     String address;
     public static String destination;
-    LocationManager locationManager;
-    LocationListener locationListener;
+    Location location;
     Double lat;
     Double longt;
-    boolean alert;
+    LocationService locationService;
+    BroadcastReceiver smsReceiver;
+    private IntentFilter myFilter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,35 +67,22 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        alert = false;
         send = (Button) findViewById(R.id.send);
         street = (EditText) findViewById(R.id.street1);
         city = (EditText) findViewById(R.id.city1);
         state = (EditText) findViewById(R.id.state1);
         zip = (EditText) findViewById(R.id.zip1);
-        locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
-        locationListener = new LocationListener() {
-            public void onLocationChanged(Location location) {
-                // Called when a new location is found by the network location provider.
-                String msg = "Updated Location: " +
-                        Double.toString(location.getLatitude()) + "," +
-                        Double.toString(location.getLongitude());
-                Log.d("listener", msg);
-                lat = location.getLatitude();
-                longt = location.getLongitude();
-            }
 
-            public void onStatusChanged(String provider, int status, Bundle extras) {}
+        smsReceiver = new SmsReceiver();
+        myFilter = new IntentFilter();
+        myFilter.addAction("android.provider.Telephony.SMS_RECEIVED");
+        registerReceiver(smsReceiver, myFilter);
 
-            public void onProviderEnabled(String provider) {
-                Toast.makeText( getApplicationContext(), "Gps Enabled", Toast.LENGTH_SHORT).show();
-            }
-
-            public void onProviderDisabled(String provider) {
-                Toast.makeText( getApplicationContext(), "Gps Disabled", Toast.LENGTH_SHORT ).show();
-            }
-        };
-        getLocation();
+        locationPermission();
+        locationService = new LocationService(this, 0, 0);
+        location = locationService.getLocation();
+        lat = location.getLatitude();
+        longt = location.getLongitude();
 
         send.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -102,7 +91,7 @@ public class MainActivity extends AppCompatActivity {
                 String c = city.getText().toString();
                 String st = state.getText().toString();
                 String z = zip.getText().toString();
-                locationManager.removeUpdates(locationListener);
+                locationService.stopUsingGPS();
                 
                 if (s.length() > 0 && c.length() > 0 && st.length() > 0 && z.length() > 0) {
                     Log.d("Hello", "button clicked");
@@ -120,6 +109,27 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    @Override
+    public void onDestroy()
+    {
+        super.onDestroy();
+        // Unregister the SMS receiver
+        unregisterReceiver(smsReceiver);
+    }
+
+    public void locationPermission() {
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                    Manifest.permission.ACCESS_FINE_LOCATION)) {
+            } else {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                        MY_PERMISSIONS_GPS);
+            }
+        }
+    }
     protected void sendSMS(String message) {
         String SENT = "SMS_SENT"; String DELIVERED = "SMS_DELIVERED";
         PendingIntent sentPI = PendingIntent.getBroadcast(this, 0, new Intent(SENT), 0);
@@ -177,7 +187,7 @@ public class MainActivity extends AppCompatActivity {
         sms.sendTextMessage(PHONENO, null, message, sentPI, deliveredPI);
     }
 
-    private void requestSMSPermission() {
+    public void requestSMSPermission() {
         if (ContextCompat.checkSelfPermission(this,
                 Manifest.permission.SEND_SMS)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -190,6 +200,17 @@ public class MainActivity extends AppCompatActivity {
             }
         } else {
             sendSMS(address);
+        }
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.RECEIVE_SMS)
+                != PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                    Manifest.permission.RECEIVE_SMS)) {
+            } else {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.RECEIVE_SMS},
+                        MY_PERMISSIONS_RECEIVE_SMS);
+            }
         }
     }
 
@@ -208,79 +229,11 @@ public class MainActivity extends AppCompatActivity {
             }
             case MY_PERMISSIONS_GPS: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    getLocation();
+                    //getLocation();
                 }
                 break;
             }
         }
-    }
-
-    public void getLocation() {
-        if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    Manifest.permission.ACCESS_FINE_LOCATION)) {
-            } else {
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                        MY_PERMISSIONS_GPS);
-            }
-        }
-        Log.d("location enable?", String.valueOf(isLocationEnabled()));
-        if (!isLocationEnabled()) {
-            showAlert();
-        }
-        Log.d("after alert", String.valueOf(isLocationEnabled()));
-        Log.d("loc", locationManager.toString());
-        Location lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-        if (lastKnownLocation != null) {
-            lat = lastKnownLocation.getLatitude();
-            longt = lastKnownLocation.getLongitude();
-        }
-        try {
-            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, locationListener);
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
-        }catch (Exception e){
-            e.printStackTrace();
-        }
-    }
-    @Override
-    public void onResume() {
-        if (alert) {
-            getLocation();
-        }
-        alert = false;
-        super.onResume();
-    }
-
-    private boolean isLocationEnabled() {
-        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-    }
-
-    private void showAlert() {
-        Log.d("show", "inside show alert");
-        Toast.makeText(this, "Please turn on GPS",
-                Toast.LENGTH_SHORT).show();
-        final AlertDialog.Builder dialog = new AlertDialog.Builder(this);
-        dialog.setTitle("Enable Location")
-                .setMessage("Your Locations Settings is set to Off.\n" +
-                        "Please Enable Location to use this app")
-                .setPositiveButton("Location Settings", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface paramDialogInterface, int paramInt) {
-                        Intent myIntent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-                        startActivity(myIntent);
-                        alert = true;
-                    }
-                })
-                .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface paramDialogInterface, int paramInt) {
-                        exit(1);
-                    }
-                });
-        dialog.show();
     }
 
     @Override

@@ -40,6 +40,5 @@ public class SmsReceiver extends BroadcastReceiver {
         Intent getDir = new Intent(context, Direction.class);
         getDir.putExtra(MESSAGE, str);
         context.startActivity(getDir);
-        throw new UnsupportedOperationException("Not yet implemented");
     }
 }
