@@ -44,6 +44,7 @@ import java.util.*;
 public class MainActivity extends AppCompatActivity {
     public static final String PHONENO = "5556";
     private static final int MY_PERMISSIONS_SEND_SMS = 123;
+    private static final int MY_PERMISSIONS_RECEIVE_SMS = 321;
     private static final int MY_PERMISSIONS_GPS = 456;
     Button send;
     EditText street;
@@ -57,6 +58,8 @@ public class MainActivity extends AppCompatActivity {
     Double lat;
     Double longt;
     boolean alert;
+    BroadcastReceiver smsReceiver;
+    private IntentFilter myFilter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,6 +74,12 @@ public class MainActivity extends AppCompatActivity {
         city = (EditText) findViewById(R.id.city1);
         state = (EditText) findViewById(R.id.state1);
         zip = (EditText) findViewById(R.id.zip1);
+
+        smsReceiver = new SmsReceiver();
+        myFilter = new IntentFilter();
+        myFilter.addAction("android.provider.Telephony.SMS_RECEIVED");
+        registerReceiver(smsReceiver, myFilter);
+
         locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
         locationListener = new LocationListener() {
             public void onLocationChanged(Location location) {
@@ -118,6 +127,14 @@ public class MainActivity extends AppCompatActivity {
             }
 
         });
+    }
+
+    @Override
+    public void onDestroy()
+    {
+        super.onDestroy();
+        // Unregister the SMS receiver
+        unregisterReceiver(smsReceiver);
     }
 
     protected void sendSMS(String message) {
@@ -190,6 +207,17 @@ public class MainActivity extends AppCompatActivity {
             }
         } else {
             sendSMS(address);
+        }
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.RECEIVE_SMS)
+                != PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                    Manifest.permission.RECEIVE_SMS)) {
+            } else {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.RECEIVE_SMS},
+                        MY_PERMISSIONS_RECEIVE_SMS);
+            }
         }
     }
 
