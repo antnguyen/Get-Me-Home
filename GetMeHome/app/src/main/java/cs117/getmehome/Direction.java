@@ -8,7 +8,9 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.Build;
 import android.provider.Settings;
+import android.speech.tts.TextToSpeech;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
@@ -19,6 +21,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.net.URISyntaxException;
+import java.util.Locale;
 
 import static android.content.Intent.getIntent;
 import static android.content.Intent.parseUri;
@@ -27,44 +30,67 @@ import static java.lang.System.exit;
 public class Direction extends AppCompatActivity implements LocationListener {
     private static final int MY_PERMISSIONS_GPS = 456;
     private static final int TWO_MINUTES = 1000 * 60 * 2;
-    private static final float MIN_DISTANCE_CHANGE_FOR_UPDATES = 10; // 10 meters
-    private static final long MIN_TIME_BW_UPDATES = 1000 * 60 * 2; // 2 minutes
+    private static final float MIN_DISTANCE_CHANGE_FOR_UPDATES = 0; // 0 meters
+    private static final long MIN_TIME_BW_UPDATES = 1000 * 5; // 5 secs
     TextView direction;
     TextView gps;
     String[] dir;
     LocationManager locationManager;
     Location location;
     String destination;
-    String output = "";
+    String output = ""; // stuff to speak
     boolean alert = false;
+    int check;
+    SendSms sendSms;
+
+    private double _eQuatorialEarthRadius = 6378.1370;
+    private double _d2r = (Math.PI / 180);
+
+    private TextToSpeech myTTS;
+    //status check code
+    private int MY_DATA_CHECK_CODE = 10;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_direction);
 
+        sendSms = new SendSms(this);
         destination = MainActivity.destination;
         locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
         direction = (TextView) findViewById(R.id.textView);
         gps = (TextView) findViewById(R.id.test);
         Intent intent = getIntent();
         dir = intent.getStringArrayExtra(SmsReceiver.MESSAGE);
+        String instructions[] = new String[dir.length];
+        String s;
+
         for (int i = 0; i < dir.length; i++) {
-            output += dir[i];
+            s = dir[i].substring(dir[i].indexOf('<') + 1, dir[i].indexOf('/'));
+            instructions[Integer.parseInt(s)] = dir[i].substring(dir[i].indexOf('>') + 1);
+        }
+
+        for (int i = 0; i < instructions.length; i++) {
+            output += instructions[i];
         }
         direction.setText(output);
 
+        //check for TTS data
+        Intent checkTTSIntent = new Intent();
+        checkTTSIntent.setAction(TextToSpeech.Engine.ACTION_CHECK_TTS_DATA);
+        startActivityForResult(checkTTSIntent, MY_DATA_CHECK_CODE);
+
         getLocation();
 
+    }
 
-        /* check for most accurate location
-        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,
-        MIN_TIME_BW_UPDATES, MIN_DISTANCE_CHANGE_FOR_UPDATES, this);
-        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
-        MIN_TIME_BW_UPDATES, MIN_DISTANCE_CHANGE_FOR_UPDATES, this);
-
-        */
-
+    @Override
+    public void onPause(){
+        if(myTTS !=null){
+            myTTS.stop();
+            myTTS.shutdown();
+        }
+        super.onPause();
     }
 
     @Override
@@ -80,14 +106,7 @@ public class Direction extends AppCompatActivity implements LocationListener {
             location = loc;
             gps.setText(location.getLatitude() +", "+ location.getLongitude());
         }
-    /* navigate
-        get next turn
-        calculate distance to next turn
-        call text to speech
-        if missed a turn
-            somehow resent sms to server with new location <- location background service?, call Main.sentSMS?
-            restart this activity onStart() or onCreate()
-     */
+        // do stuff
     }
 
     @Override
@@ -226,4 +245,81 @@ public class Direction extends AppCompatActivity implements LocationListener {
         }
         return provider1.equals(provider2);
     }
+
+    /** Text to speech */
+    //act on result of TTS data check
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == MY_DATA_CHECK_CODE) {
+            if (resultCode == TextToSpeech.Engine.CHECK_VOICE_DATA_PASS) {
+                //the user has the necessary data - create the TTS
+                myTTS = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
+                    @Override
+                    public void onInit(int status) {
+                        Log.d("testData", String.valueOf(status));
+                        if (status == TextToSpeech.SUCCESS) {
+                            if(myTTS.isLanguageAvailable(Locale.US)==TextToSpeech.LANG_AVAILABLE) {
+                                myTTS.setLanguage(Locale.US);
+                            }
+                            speakText(output);
+                        }
+                        else if (status == TextToSpeech.ERROR) {
+                            Toast.makeText(getApplicationContext(), "Sorry! Text To Speech failed", Toast.LENGTH_LONG).show();
+                        }
+                    }
+                });
+            }
+            else {
+                //no data - install it now
+                Intent installTTSIntent = new Intent();
+                installTTSIntent.setAction(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA);
+                startActivity(installTTSIntent);
+            }
+        }
+    }
+
+    public void speakText(String toSpeak) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            check = myTTS.speak(toSpeak, TextToSpeech.QUEUE_FLUSH, null, "instructions");
+        } else {
+            check = myTTS.speak(toSpeak, TextToSpeech.QUEUE_FLUSH, null);
+        }
+        if (check == myTTS.ERROR) {
+            Toast.makeText(this, "Failed to speak message\n", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /** Methods to calculate distance */
+    private double HaversineInM(double lat1, double long1, double lat2, double long2)
+    {
+        return 1000.0 * HaversineInKM(lat1, long1, lat2, long2);
+    }
+
+    private double HaversineInM(String lat1, String long1, String lat2, String long2){
+        return HaversineInM(Double.parseDouble(lat1), Double.parseDouble(long1), Double.parseDouble(lat2), Double.parseDouble(long2));
+    }
+
+    private double HaversineInKM(double lat1, double long1, double lat2, double long2)
+    {
+        double dlong = (long2 - long1) * _d2r;
+        double dlat = (lat2 - lat1) * _d2r;
+        double a = Math.pow(Math.sin(dlat / 2.0), 2.0) + Math.cos(lat1 * _d2r) * Math.cos(lat2 * _d2r) * Math.pow(Math.sin(dlong / 2.0), 2.0);
+        double c = 2.0 * Math.atan2(Math.sqrt(a), Math.sqrt(1.0 - a));
+        double d = _eQuatorialEarthRadius * c;
+
+        return d;
+    }
+
+    private double HaversineInKM(String lat1, String long1, String lat2, String long2) {
+        return HaversineInKM(Double.parseDouble(lat1), Double.parseDouble(long2), Double.parseDouble(lat2), Double.parseDouble(long2));
+    }
+
+    // do stuff
+        /* navigate
+        get next turn
+        calculate distance to next turn
+        call text to speech
+        if missed a turn
+            resent sms to server with new location
+            restart this activity onStart() or onCreate()
+     */
 }

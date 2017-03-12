@@ -12,6 +12,7 @@ import static android.support.v4.content.ContextCompat.startActivity;
 
 public class SmsReceiver extends BroadcastReceiver {
     public static String MESSAGE = "directions";
+    String phone = MainActivity.PHONENO;
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -20,11 +21,14 @@ public class SmsReceiver extends BroadcastReceiver {
         //---get the SMS message passed in---
         Bundle bundle = intent.getExtras();
         SmsMessage[] msgs = null;
-        String[] str = {""};
+        String[] str = null;
+        boolean received = false;
+
         if (bundle != null) {
             //---retrieve the SMS message received---
             Object[] pdus = (Object[]) bundle.get("pdus");
             msgs = new SmsMessage[pdus.length];
+            str = new String[msgs.length];
             for (int i = 0; i < msgs.length; i++) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     String format = bundle.getString("format");
@@ -33,13 +37,22 @@ public class SmsReceiver extends BroadcastReceiver {
                     msgs[i] = SmsMessage.createFromPdu((byte[]) pdus[i]);
                 }
                 Log.d("source", msgs[i].getOriginatingAddress());
-                str[i] += msgs[i].getMessageBody();
-                str[i] += "\n";
+                Log.d("the text", msgs[i].getMessageBody());
+                if (msgs[i].getOriginatingAddress().equals(phone) ||
+                        msgs[i].getOriginatingAddress().equals(phone.substring(2))) {
+                    received = true;
+                    str[i] = msgs[i].getMessageBody();
+                }
             }
         }
-        Intent getDir = new Intent(context, Direction.class);
-        getDir.putExtra(MESSAGE, str);
-        context.startActivity(getDir);
+
+        Log.d("number of sms", String.valueOf(str.length));
+
+        if (received) {
+            Intent getDir = new Intent(context, Direction.class);
+            getDir.putExtra(MESSAGE, str);
+            context.startActivity(getDir);
+        }
         //throw new UnsupportedOperationException("Not yet implemented");
     }
 }

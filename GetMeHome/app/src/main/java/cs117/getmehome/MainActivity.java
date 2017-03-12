@@ -42,7 +42,7 @@ import java.security.Provider;
 import java.util.*;
 
 public class MainActivity extends AppCompatActivity {
-    public static final String PHONENO = "5556";
+    public static final String PHONENO = "+16312464723";
     private static final int MY_PERMISSIONS_SEND_SMS = 123;
     private static final int MY_PERMISSIONS_RECEIVE_SMS = 321;
     private static final int MY_PERMISSIONS_GPS = 456;
@@ -60,6 +60,7 @@ public class MainActivity extends AppCompatActivity {
     boolean alert;
     BroadcastReceiver smsReceiver;
     private IntentFilter myFilter;
+    SendSms sendSms;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,11 +75,12 @@ public class MainActivity extends AppCompatActivity {
         city = (EditText) findViewById(R.id.city1);
         state = (EditText) findViewById(R.id.state1);
         zip = (EditText) findViewById(R.id.zip1);
+        sendSms = new SendSms(this);
+        requestSMSPermission();
 
         smsReceiver = new SmsReceiver();
         myFilter = new IntentFilter();
         myFilter.addAction("android.provider.Telephony.SMS_RECEIVED");
-        registerReceiver(smsReceiver, myFilter);
 
         locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
         locationListener = new LocationListener() {
@@ -117,9 +119,13 @@ public class MainActivity extends AppCompatActivity {
                     Log.d("Hello", "button clicked");
                     destination = s + ", " + c + ", " + st + " " + z;
                     Log.d("before", destination);
-                    address = destination + "\n" + Double.toString(lat) + " " + Double.toString(longt);
+                    address = "#GMH\n" + destination + "\n" +
+                            Double.toString(lat) + "\n" + Double.toString(longt);
+                    sendSms.setPhone(PHONENO);
+                    sendSms.setMessage(address);
                     Log.d("after", address);
-                    requestSMSPermission();
+                    sendSms.sendSMS(address);
+                    registerReceiver(smsReceiver, myFilter);
                 } else {
                     Toast.makeText(MainActivity.this, "Please enter full address",
                             Toast.LENGTH_SHORT).show();
@@ -136,64 +142,7 @@ public class MainActivity extends AppCompatActivity {
         // Unregister the SMS receiver
         unregisterReceiver(smsReceiver);
     }
-
-    protected void sendSMS(String message) {
-        String SENT = "SMS_SENT"; String DELIVERED = "SMS_DELIVERED";
-        PendingIntent sentPI = PendingIntent.getBroadcast(this, 0, new Intent(SENT), 0);
-        PendingIntent deliveredPI = PendingIntent.getBroadcast(this, 0, new Intent(DELIVERED), 0);
-
-        //---when the SMS has been sent---
-        registerReceiver(new BroadcastReceiver(){
-            @Override
-            public void onReceive(Context arg0, Intent arg1) {
-                switch (getResultCode())
-                {
-                    case Activity.RESULT_OK:
-                        Toast.makeText(getBaseContext(), "SMS sent",
-                                Toast.LENGTH_SHORT).show();
-                        break;
-                    case SmsManager.RESULT_ERROR_GENERIC_FAILURE:
-                        Toast.makeText(getBaseContext(), "Generic failure",
-                                Toast.LENGTH_SHORT).show();
-                        break;
-                    case SmsManager.RESULT_ERROR_NO_SERVICE:
-                        Toast.makeText(getBaseContext(), "No service",
-                                Toast.LENGTH_SHORT).show();
-                        break;
-                    case SmsManager.RESULT_ERROR_NULL_PDU:
-                        Toast.makeText(getBaseContext(), "Null PDU",
-                                Toast.LENGTH_SHORT).show();
-                        break;
-                    case SmsManager.RESULT_ERROR_RADIO_OFF:
-                        Toast.makeText(getBaseContext(), "Radio off",
-                                Toast.LENGTH_SHORT).show();
-                        break;
-                }
-            }
-        }, new IntentFilter(SENT));
-
-        //---when the SMS has been delivered---
-        registerReceiver(new BroadcastReceiver(){
-            @Override
-            public void onReceive(Context arg0, Intent arg1) {
-                switch (getResultCode())
-                {
-                    case Activity.RESULT_OK:
-                        Toast.makeText(getBaseContext(), "SMS delivered",
-                                Toast.LENGTH_SHORT).show();
-                        break;
-                    case Activity.RESULT_CANCELED:
-                        Toast.makeText(getBaseContext(), "SMS not delivered",
-                                Toast.LENGTH_SHORT).show();
-                        break;
-                }
-            }
-        }, new IntentFilter(DELIVERED));
-
-        SmsManager sms = SmsManager.getDefault();
-        sms.sendTextMessage(PHONENO, null, message, sentPI, deliveredPI);
-    }
-
+    
     private void requestSMSPermission() {
         if (ContextCompat.checkSelfPermission(this,
                 Manifest.permission.SEND_SMS)
@@ -205,8 +154,6 @@ public class MainActivity extends AppCompatActivity {
                         new String[]{Manifest.permission.SEND_SMS},
                         MY_PERMISSIONS_SEND_SMS);
             }
-        } else {
-            sendSMS(address);
         }
         if (ContextCompat.checkSelfPermission(this,
                 Manifest.permission.RECEIVE_SMS)
@@ -228,7 +175,6 @@ public class MainActivity extends AppCompatActivity {
 
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     // permission was granted
-                    sendSMS(address);
                 } else {
                     // permission denied
                 }
