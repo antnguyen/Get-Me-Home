@@ -21,27 +21,34 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Queue;
 
 import static android.content.Intent.getIntent;
 import static android.content.Intent.parseUri;
 import static java.lang.System.exit;
+import static java.lang.System.out;
 
 public class Direction extends AppCompatActivity implements LocationListener {
     private static final int MY_PERMISSIONS_GPS = 456;
     private static final int TWO_MINUTES = 1000 * 60 * 2;
-    private static final float MIN_DISTANCE_CHANGE_FOR_UPDATES = 0; // 0 meters
-    private static final long MIN_TIME_BW_UPDATES = 1000 * 5; // 5 secs
+    private static final float MIN_DISTANCE_CHANGE_FOR_UPDATES = 5; // 5 meters
+    private static final long MIN_TIME_BW_UPDATES = 1000 * 1; // 1 secs
     TextView direction;
-    TextView gps;
-    String[] dir;
+    TextView nextDir;
     LocationManager locationManager;
     Location location;
     String destination;
-    String output = ""; // stuff to speak
+    String output = "";
+    String toSpeak;
     boolean alert = false;
     int check;
     SendSms sendSms;
+    LinkedList<Instruction> instructions = new LinkedList<Instruction>();
 
     private double _eQuatorialEarthRadius = 6378.1370;
     private double _d2r = (Math.PI / 180);
@@ -54,26 +61,34 @@ public class Direction extends AppCompatActivity implements LocationListener {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_direction);
+        toSpeak = "starting navigation";
 
         sendSms = new SendSms(this);
         destination = MainActivity.destination;
         locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
         direction = (TextView) findViewById(R.id.textView);
-        gps = (TextView) findViewById(R.id.test);
+        nextDir = (TextView) findViewById(R.id.textView2);
+
         Intent intent = getIntent();
-        dir = intent.getStringArrayExtra(SmsReceiver.MESSAGE);
-        String instructions[] = new String[dir.length];
-        String s;
+        output = intent.getStringExtra(SmsReceiver.MESSAGE);
+        Log.d("output", output);
 
-        for (int i = 0; i < dir.length; i++) {
-            s = dir[i].substring(dir[i].indexOf('<') + 1, dir[i].indexOf('/'));
-            instructions[Integer.parseInt(s)] = dir[i].substring(dir[i].indexOf('>') + 1);
+        String[] dir = output.split("\\|\\|");
+
+        for (int i = 0; i < dir.length; ++i) {
+            String s = dir[i];
+            Log.d("dir ", s);
+            if(s.equals("")){
+                continue;
+            }
+            String[] parse = s.split("\\^\\^");
+            Log.d("after split", parse[0] + "\n" + parse[1] + "\n" + parse[2] + "\n" + parse[3] +
+            "\n" + parse[4]);
+            instructions.add(new Instruction(Double.valueOf(parse[0]), Double.valueOf(parse[1]),
+                    Double.valueOf(parse[2]), Double.valueOf(parse[3]), parse[4]));
         }
 
-        for (int i = 0; i < instructions.length; i++) {
-            output += instructions[i];
-        }
-        direction.setText(output);
+        updateScreen();
 
         //check for TTS data
         Intent checkTTSIntent = new Intent();
@@ -94,6 +109,15 @@ public class Direction extends AppCompatActivity implements LocationListener {
     }
 
     @Override
+    public void onResume() {
+        if (alert) {
+            getLocation();
+        }
+        alert = false;
+        super.onResume();
+    }
+
+    @Override
     public void onStop() {
         locationManager.removeUpdates(this);
         super.onStop();
@@ -104,9 +128,36 @@ public class Direction extends AppCompatActivity implements LocationListener {
         Log.d("in change", loc.getProvider());
         if (isBetterLocation(loc, location)) {
             location = loc;
-            gps.setText(location.getLatitude() +", "+ location.getLongitude());
         }
-        // do stuff
+        /* navigate
+        calculate distance to next turn
+        if close
+            pop instruction
+            call text to speech
+        if missed a turn
+            resent sms to server with new location
+            restart this activity onStart() or onCreate()
+     */
+        Instruction current = instructions.peek();
+        double dist = HaversineInM(location.getLatitude(), location.getLongitude(),
+                current.getEnd().lat, current.getEnd().lng);
+        if (dist <= 30) {
+            //MAKE NOISE
+            instructions.removeFirst(); //POP off queue
+            updateScreen();
+        }
+    }
+
+    private void updateScreen(){
+        direction.setText(instructions.peek().getInstruction());
+        if(instructions.size() == 1){
+            nextDir.setText("DESTINATION");
+        }
+        else{
+            nextDir.setText(instructions.get(1).getInstruction());
+        }
+        toSpeak = instructions.peek().getInstruction() + "then" +
+                instructions.get(1).getInstruction();
     }
 
     @Override
@@ -152,15 +203,6 @@ public class Direction extends AppCompatActivity implements LocationListener {
         }catch (Exception e){
             e.printStackTrace();
         }
-    }
-
-    @Override
-    public void onResume() {
-        if (alert) {
-            getLocation();
-        }
-        alert = false;
-        super.onResume();
     }
 
     private boolean isLocationEnabled() {
@@ -260,7 +302,7 @@ public class Direction extends AppCompatActivity implements LocationListener {
                             if(myTTS.isLanguageAvailable(Locale.US)==TextToSpeech.LANG_AVAILABLE) {
                                 myTTS.setLanguage(Locale.US);
                             }
-                            speakText(output);
+                            speakText(toSpeak);
                         }
                         else if (status == TextToSpeech.ERROR) {
                             Toast.makeText(getApplicationContext(), "Sorry! Text To Speech failed", Toast.LENGTH_LONG).show();
@@ -312,14 +354,4 @@ public class Direction extends AppCompatActivity implements LocationListener {
     private double HaversineInKM(String lat1, String long1, String lat2, String long2) {
         return HaversineInKM(Double.parseDouble(lat1), Double.parseDouble(long2), Double.parseDouble(lat2), Double.parseDouble(long2));
     }
-
-    // do stuff
-        /* navigate
-        get next turn
-        calculate distance to next turn
-        call text to speech
-        if missed a turn
-            resent sms to server with new location
-            restart this activity onStart() or onCreate()
-     */
 }

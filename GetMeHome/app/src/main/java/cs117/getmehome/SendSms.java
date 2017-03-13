@@ -98,47 +98,4 @@ public class SendSms {
         SmsManager sms = SmsManager.getDefault();
         sms.sendTextMessage(phone, null, message, sentPI, deliveredPI);
     }
-
-/*    private void requestSMSPermission() {
-        if (ContextCompat.checkSelfPermission(mContext,
-                Manifest.permission.SEND_SMS)
-                != PackageManager.PERMISSION_GRANTED) {
-            if (ActivityCompat.shouldShowRequestPermissionRationale((Activity) mContext,
-                    Manifest.permission.SEND_SMS)) {
-            } else {
-                ActivityCompat.requestPermissions((Activity) mContext,
-                        new String[]{Manifest.permission.SEND_SMS},
-                        MY_PERMISSIONS_SEND_SMS);
-            }
-        } else {
-            sendSMS(message);
-        }
-        if (ContextCompat.checkSelfPermission(mContext,
-                Manifest.permission.RECEIVE_SMS)
-                != PackageManager.PERMISSION_GRANTED) {
-            if (ActivityCompat.shouldShowRequestPermissionRationale((Activity) mContext,
-                    Manifest.permission.RECEIVE_SMS)) {
-            } else {
-                ActivityCompat.requestPermissions((Activity) mContext,
-                        new String[]{Manifest.permission.RECEIVE_SMS},
-                        MY_PERMISSIONS_RECEIVE_SMS);
-            }
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
-        switch (requestCode) {
-            case MY_PERMISSIONS_SEND_SMS: {
-
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    // permission was granted
-                    sendSMS(message);
-                } else {
-                    // permission denied
-                }
-                break;
-            }
-        }
-    }*/
 }
