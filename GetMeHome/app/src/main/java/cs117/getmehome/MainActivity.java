@@ -136,13 +136,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    public void onStop() {
+        //unregisterReceiver(smsReceiver);
+        super.onStop();
+    }
+    @Override
     public void onDestroy()
     {
         super.onDestroy();
         // Unregister the SMS receiver
         unregisterReceiver(smsReceiver);
     }
-    
+
     private void requestSMSPermission() {
         if (ContextCompat.checkSelfPermission(this,
                 Manifest.permission.SEND_SMS)

@@ -88,15 +88,18 @@ public class Direction extends AppCompatActivity implements LocationListener {
                     Double.valueOf(parse[2]), Double.valueOf(parse[3]), parse[4]));
         }
 
+        for(Instruction i : instructions){
+            Log.d("Instruction", i.getInstruction());
+        }
+
         updateScreen();
 
-        //check for TTS data
+        /*//check for TTS data
         Intent checkTTSIntent = new Intent();
         checkTTSIntent.setAction(TextToSpeech.Engine.ACTION_CHECK_TTS_DATA);
-        startActivityForResult(checkTTSIntent, MY_DATA_CHECK_CODE);
+        startActivityForResult(checkTTSIntent, MY_DATA_CHECK_CODE);*/
 
         getLocation();
-
     }
 
     @Override
@@ -138,9 +141,19 @@ public class Direction extends AppCompatActivity implements LocationListener {
             resent sms to server with new location
             restart this activity onStart() or onCreate()
      */
-        Instruction current = instructions.peek();
+        if(instructions.size() == 1){
+            Instruction current = instructions.get(0);
+            double dist = HaversineInM(location.getLatitude(), location.getLongitude(),
+                    current.getEnd().lat, current.getEnd().lng);
+            if (dist <= 30) {
+                //MAKE NOISE
+                endUpdateScreen();
+            }
+            return;
+        }
+        Instruction current = instructions.get(1);
         double dist = HaversineInM(location.getLatitude(), location.getLongitude(),
-                current.getEnd().lat, current.getEnd().lng);
+                current.getStart().lat, current.getStart().lng);
         if (dist <= 30) {
             //MAKE NOISE
             instructions.removeFirst(); //POP off queue
@@ -152,12 +165,29 @@ public class Direction extends AppCompatActivity implements LocationListener {
         direction.setText(instructions.peek().getInstruction());
         if(instructions.size() == 1){
             nextDir.setText("DESTINATION");
+            toSpeak = instructions.peek().getInstruction();
         }
         else{
             nextDir.setText(instructions.get(1).getInstruction());
+            toSpeak = instructions.peek().getInstruction() + "then" +
+                    instructions.get(1).getInstruction();
         }
-        toSpeak = instructions.peek().getInstruction() + "then" +
-                instructions.get(1).getInstruction();
+        //check for TTS data
+        Intent checkTTSIntent = new Intent();
+        checkTTSIntent.setAction(TextToSpeech.Engine.ACTION_CHECK_TTS_DATA);
+        startActivityForResult(checkTTSIntent, MY_DATA_CHECK_CODE);
+
+    }
+
+    private void endUpdateScreen(){
+        direction.setText(instructions.peek().getInstruction());
+        nextDir.setText("DESTINATION");
+        toSpeak = "Congratulations. You are at the destination. We hope you are still alive.";
+        //Go back to home screen
+        Intent checkTTSIntent = new Intent();
+        checkTTSIntent.setAction(TextToSpeech.Engine.ACTION_CHECK_TTS_DATA);
+        startActivityForResult(checkTTSIntent, MY_DATA_CHECK_CODE);
+
     }
 
     @Override
