@@ -17,8 +17,11 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="?attr/colorPrimary"
-            app:popupTheme="@style/AppTheme.PopupOverlay"
+            android:clickable="false"
+            android:longClickable="true"
             android:tag="@string/app_name"
+            app:logo="@android:drawable/ic_menu_myplaces"
+            app:popupTheme="@style/AppTheme.PopupOverlay"
             app:title="@string/app_name" />
 
     </android.support.design.widget.AppBarLayout>

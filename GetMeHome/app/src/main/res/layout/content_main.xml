@@ -14,30 +14,28 @@
     tools:showIn="@layout/activity_main">
 
     <EditText
+        android:id="@+id/street1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:inputType="textPersonName"
-        android:ems="10"
-        android:layout_below="@+id/street0"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true"
-        android:layout_marginTop="17dp"
-        android:id="@+id/street1"
-        android:layout_alignParentRight="true"
         android:layout_alignParentEnd="true"
-        android:background="@android:drawable/zoom_plate" />
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentStart="true"
+        android:layout_below="@+id/street0"
+        android:layout_marginTop="17dp"
+        android:ems="10"
+        android:inputType="textPostalAddress" />
 
     <EditText
+        android:id="@+id/city1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:inputType="textPersonName"
-        android:ems="10"
-        android:layout_marginTop="12dp"
-        android:id="@+id/city1"
-        android:layout_below="@+id/city0"
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true"
-        android:background="@android:drawable/zoom_plate" />
+        android:layout_below="@+id/city0"
+        android:layout_marginTop="12dp"
+        android:ems="10"
+        android:inputType="textShortMessage" />
 
     <TextView
         android:text="State"
@@ -52,28 +50,28 @@
         android:id="@+id/state0" />
 
     <EditText
+        android:id="@+id/state1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:inputType="textShortMessage"
-        android:ems="10"
-        android:layout_below="@+id/state0"
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true"
+        android:layout_below="@+id/state0"
         android:layout_marginTop="19dp"
-        android:id="@+id/state1"
         android:layout_toStartOf="@+id/zip0"
-        android:background="@android:drawable/zoom_plate" />
+        android:ems="10"
+        android:inputType="textShortMessage"
+        android:maxLength="2" />
 
     <EditText
+        android:id="@+id/zip1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:inputType="textPersonName"
-        android:ems="10"
         android:layout_alignBottom="@+id/state1"
         android:layout_toEndOf="@+id/state1"
-        android:id="@+id/zip1"
-        tools:inputType="number"
-        android:background="@android:drawable/zoom_plate" />
+        android:ems="10"
+        android:inputType="number"
+        android:maxLength="5"
+        tools:inputType="number" />
 
     <TextView
         android:text="City"
@@ -91,7 +89,6 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="26dp"
         android:id="@+id/street0"
-        android:layout_below="@+id/welcome"
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true" />
 
@@ -110,7 +107,6 @@
         android:layout_height="wrap_content"
         android:id="@+id/send"
         android:layout_alignParentBottom="true"
-        android:layout_alignRight="@+id/street0"
-        android:layout_alignEnd="@+id/street0"
-        android:layout_marginBottom="12dp" />
+        android:layout_centerHorizontal="true" />
+
 </RelativeLayout>
