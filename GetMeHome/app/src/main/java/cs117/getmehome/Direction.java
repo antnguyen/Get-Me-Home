@@ -157,19 +157,12 @@ public class Direction extends AppCompatActivity implements LocationListener {
         if (isBetterLocation(loc, location)) {
             location = loc;
         }
-        /* navigate
-        if isLost
-            sendSms
-        */
+
         if(instructions.size() == 1){
             Instruction current = instructions.get(0);
             double dist = HaversineInM(location.getLatitude(), location.getLongitude(),
                     current.getEnd().lat, current.getEnd().lng);
             if (dist <= 30) {
-                //if (!beep) {
-                    //makeNoise();
-                    //beep = true;
-                //}
                 endUpdateScreen();
             }
             return;
@@ -178,10 +171,7 @@ public class Direction extends AppCompatActivity implements LocationListener {
         double dist = HaversineInM(location.getLatitude(), location.getLongitude(),
                 current.getStart().lat, current.getStart().lng);
         if (dist <= 30) {
-            //if (!beep) {
-                makeNoise();
-                //beep = true;
-            //}
+            makeNoise();
             instructions.removeFirst(); //POP off queue
             updateScreen();
         }
