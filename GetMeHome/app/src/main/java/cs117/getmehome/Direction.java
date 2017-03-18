@@ -8,6 +8,8 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.media.AudioManager;
+import android.media.ToneGenerator;
 import android.os.Build;
 import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
@@ -16,7 +18,13 @@ import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.LinearLayoutCompat;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -28,6 +36,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Queue;
 
+import static android.R.attr.delay;
 import static android.content.Intent.getIntent;
 import static android.content.Intent.parseUri;
 import static java.lang.System.exit;
@@ -38,8 +47,13 @@ public class Direction extends AppCompatActivity implements LocationListener {
     private static final int TWO_MINUTES = 1000 * 60 * 2;
     private static final float MIN_DISTANCE_CHANGE_FOR_UPDATES = 5; // 5 meters
     private static final long MIN_TIME_BW_UPDATES = 1000 * 1; // 1 secs
+    public static final String CONTENT = "SMS to resend";
+    public static final String LAT = "latitude";
+    public static final String LONG = "longitude";
+
     TextView direction;
     TextView nextDir;
+    Button resend;
     LocationManager locationManager;
     Location location;
     String destination;
@@ -47,7 +61,6 @@ public class Direction extends AppCompatActivity implements LocationListener {
     String toSpeak;
     boolean alert = false;
     int check;
-    SendSms sendSms;
     LinkedList<Instruction> instructions = new LinkedList<Instruction>();
 
     private double _eQuatorialEarthRadius = 6378.1370;
@@ -61,15 +74,19 @@ public class Direction extends AppCompatActivity implements LocationListener {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_direction);
+        getSupportActionBar().setDisplayShowHomeEnabled(true);
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        getSupportActionBar().setHomeButtonEnabled(true);
+
         toSpeak = "starting navigation";
 
-        sendSms = new SendSms(this);
-        destination = MainActivity.destination;
         locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
         direction = (TextView) findViewById(R.id.textView);
         nextDir = (TextView) findViewById(R.id.textView2);
+        resend = (Button) findViewById(R.id.button);
 
         Intent intent = getIntent();
+        destination = intent.getStringExtra(SmsReceiver.DEST);
         output = intent.getStringExtra(SmsReceiver.MESSAGE);
         Log.d("output", output);
 
@@ -94,12 +111,20 @@ public class Direction extends AppCompatActivity implements LocationListener {
 
         updateScreen();
 
-        /*//check for TTS data
-        Intent checkTTSIntent = new Intent();
-        checkTTSIntent.setAction(TextToSpeech.Engine.ACTION_CHECK_TTS_DATA);
-        startActivityForResult(checkTTSIntent, MY_DATA_CHECK_CODE);*/
-
         getLocation();
+
+        resend.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent sending = new Intent(Direction.this, Resending.class);
+                Log.d("destination", destination);
+                sending.putExtra(CONTENT, destination);
+                sending.putExtra(LAT, location.getLatitude());
+                sending.putExtra(LONG, location.getLongitude());
+                startActivity(sending);
+                finish();
+            }
+        });
     }
 
     @Override
@@ -133,20 +158,18 @@ public class Direction extends AppCompatActivity implements LocationListener {
             location = loc;
         }
         /* navigate
-        calculate distance to next turn
-        if close
-            pop instruction
-            call text to speech
-        if missed a turn
-            resent sms to server with new location
-            restart this activity onStart() or onCreate()
-     */
+        if isLost
+            sendSms
+        */
         if(instructions.size() == 1){
             Instruction current = instructions.get(0);
             double dist = HaversineInM(location.getLatitude(), location.getLongitude(),
                     current.getEnd().lat, current.getEnd().lng);
             if (dist <= 30) {
-                //MAKE NOISE
+                //if (!beep) {
+                    //makeNoise();
+                    //beep = true;
+                //}
                 endUpdateScreen();
             }
             return;
@@ -155,10 +178,32 @@ public class Direction extends AppCompatActivity implements LocationListener {
         double dist = HaversineInM(location.getLatitude(), location.getLongitude(),
                 current.getStart().lat, current.getStart().lng);
         if (dist <= 30) {
-            //MAKE NOISE
+            //if (!beep) {
+                makeNoise();
+                //beep = true;
+            //}
             instructions.removeFirst(); //POP off queue
             updateScreen();
         }
+    }
+
+    private boolean isLost(Location loc, Instruction i) {
+        double lat = loc.getLatitude();
+        double lon = loc.getLongitude();
+        double distToStart = HaversineInM(lat, lon, i.getStart().lat, i.getStart().lng);
+        double distToEnd = HaversineInM(lat, lon, i.getEnd().lat, i.getEnd().lng);
+        double dist = HaversineInM(i.getStart().lat, i.getStart().lng,
+                i.getEnd().lat, i.getEnd().lng);
+
+        if (distToStart + distToEnd > dist + 10) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    private void makeNoise() {
+        ToneGenerator toneG = new ToneGenerator(AudioManager.STREAM_ALARM, 100);
+        toneG.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 200);
     }
 
     private void updateScreen(){
@@ -176,18 +221,25 @@ public class Direction extends AppCompatActivity implements LocationListener {
         Intent checkTTSIntent = new Intent();
         checkTTSIntent.setAction(TextToSpeech.Engine.ACTION_CHECK_TTS_DATA);
         startActivityForResult(checkTTSIntent, MY_DATA_CHECK_CODE);
-
     }
 
     private void endUpdateScreen(){
         direction.setText(instructions.peek().getInstruction());
         nextDir.setText("DESTINATION");
         toSpeak = "Congratulations. You are at the destination. We hope you are still alive.";
-        //Go back to home screen
+
         Intent checkTTSIntent = new Intent();
         checkTTSIntent.setAction(TextToSpeech.Engine.ACTION_CHECK_TTS_DATA);
         startActivityForResult(checkTTSIntent, MY_DATA_CHECK_CODE);
 
+        //Go back to home screen
+        try {
+            Thread.sleep(2000);                 //1000 milliseconds is 1 second.
+        } catch(InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+
+        finish();
     }
 
     @Override
@@ -356,7 +408,7 @@ public class Direction extends AppCompatActivity implements LocationListener {
             check = myTTS.speak(toSpeak, TextToSpeech.QUEUE_FLUSH, null);
         }
         if (check == myTTS.ERROR) {
-            Toast.makeText(this, "Failed to speak message\n", Toast.LENGTH_SHORT).show();
+            Log.d("TTS error", "Failed to speak message");
         }
     }
 
@@ -383,5 +435,33 @@ public class Direction extends AppCompatActivity implements LocationListener {
 
     private double HaversineInKM(String lat1, String long1, String lat2, String long2) {
         return HaversineInKM(Double.parseDouble(lat1), Double.parseDouble(long2), Double.parseDouble(lat2), Double.parseDouble(long2));
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id = item.getItemId();
+
+        //noinspection SimplifiableIfStatement
+        if (id == R.id.action_settings) {
+            return true;
+        }
+        if (id == R.id.home) {
+            Intent homeIntent = new Intent(this, MainActivity.class);
+            homeIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            startActivity(homeIntent);
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
     }
 }

@@ -18,6 +18,7 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.DialogFragment;
+import android.support.v4.app.NavUtils;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.pm.ActivityInfoCompat;
 import android.support.v7.app.AlertDialog;
@@ -69,6 +70,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
         alert = false;
         send = (Button) findViewById(R.id.send);
         street = (EditText) findViewById(R.id.street1);
@@ -77,10 +79,6 @@ public class MainActivity extends AppCompatActivity {
         zip = (EditText) findViewById(R.id.zip1);
         sendSms = new SendSms(this);
         requestSMSPermission();
-
-        smsReceiver = new SmsReceiver();
-        myFilter = new IntentFilter();
-        myFilter.addAction("android.provider.Telephony.SMS_RECEIVED");
 
         locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
         locationListener = new LocationListener() {
@@ -104,11 +102,12 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText( getApplicationContext(), "Gps Disabled", Toast.LENGTH_SHORT ).show();
             }
         };
-        getLocation();
+        //getLocation();
 
         send.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                send.setEnabled(false);
                 String s = street.getText().toString();
                 String c = city.getText().toString();
                 String st = state.getText().toString();
@@ -118,6 +117,11 @@ public class MainActivity extends AppCompatActivity {
                 if (s.length() > 0 && c.length() > 0 && st.length() > 0 && z.length() > 0) {
                     Log.d("Hello", "button clicked");
                     destination = s + ", " + c + ", " + st + " " + z;
+
+                    smsReceiver = new SmsReceiver(destination);
+                    myFilter = new IntentFilter();
+                    myFilter.addAction("android.provider.Telephony.SMS_RECEIVED");
+
                     Log.d("before", destination);
                     address = "#GMH\n" + destination + "\n" +
                             Double.toString(lat) + "\n" + Double.toString(longt);
@@ -136,9 +140,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onStop() {
-        //unregisterReceiver(smsReceiver);
-        super.onStop();
+    public void onStart() {
+        super.onStart();
+        send.setEnabled(true);
+        getLocation();
     }
     @Override
     public void onDestroy()
@@ -226,11 +231,11 @@ public class MainActivity extends AppCompatActivity {
     }
     @Override
     public void onResume() {
+        super.onResume();
         if (alert) {
             getLocation();
         }
         alert = false;
-        super.onResume();
     }
 
     private boolean isLocationEnabled() {
@@ -280,6 +285,13 @@ public class MainActivity extends AppCompatActivity {
         if (id == R.id.action_settings) {
             return true;
         }
+        /*if (id == R.id.home) {
+            Intent homeIntent = new Intent(this, MainActivity.class);
+            homeIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            startActivity(homeIntent);
+            return true;
+
+        }*/
 
         return super.onOptionsItemSelected(item);
     }
